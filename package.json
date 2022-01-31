@@ -1,0 +1,28 @@
+{
+  "name": "com.risd.figmabridge",
+  "version": "0.1.0",
+  "displayName": "MRTK Figma Bridge (RISD)",
+  "description": "MRTK Figma Bridge for importing Figma into Unity.",
+  "unity": "2020.3",
+  "documentationUrl": "https://example.com/",
+  "changelogUrl": "https://example.com/changelog.html",
+  "license": "MIT",
+  "dependencies": {
+    "com.microsoft.mixedreality.toolkit.foundation": "2.7.0",
+    "com.unity.nuget.newtonsoft-json": "2.0.0",
+    "com.unity.textmeshpro": "2.1.4"
+  },
+  "keywords": [
+    "mrtk",
+    "microsoft",
+    "mixed",
+    "reality",
+    "augmented",
+    "virtual",
+    "xr",
+    "hololens",
+    "figma",
+    "design"
+  ],
+  "author": "RISD"
+}
