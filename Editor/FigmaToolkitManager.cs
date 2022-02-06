@@ -215,6 +215,8 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
         private GameObject BuildBase(Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.Node document)
         {
             GameObject go = new GameObject(document.name);
+            //DebugComponent debugComponent = go.AddComponent<DebugComponent>();
+            //debugComponent.Init(document);
             return go;
         }
 
@@ -226,6 +228,7 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
 
         private GameObject BuildFrame(Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.Node document)
         {
+            Debug.LogWarning("Frame: " + document.name);
             GameObject go = BuildBase(document);
             SetPosition(document, go);
             return go;

@@ -13,7 +13,9 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
     public class FigmaSettings : ScriptableObject
     {
         public const string FigmaFolder = "FigmaToolkit";
+        public static readonly string FigmaFolderPath = Path.Combine(AssetsFolder, FigmaFolder);
         public const string GeneratedFolder = "Resources";
+        public const string GeneratedAssetsFolder = "Assets";
         public const string AssetsFolder = "Assets";
         public static readonly string FigmaBasePath = Path.Combine(AssetsFolder, FigmaFolder, GeneratedFolder);
         public const string PackageName = "com.risd.figmabridge";

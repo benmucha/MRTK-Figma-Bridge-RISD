@@ -52,6 +52,19 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
                 data = AssetDatabase.LoadAssetAtPath<FigmaToolkitData>(FigmaDataPath);
             }
 
+            /*
+            string GeneratedAssetsFolder = Path.Combine(FigmaSettings.AssetsFolder, FigmaSettings.FigmaFolder, "Assets");
+            Debug.Log("testing: " + AssetDatabase.IsValidFolder(GeneratedAssetsFolder));
+            if (!AssetDatabase.IsValidFolder(GeneratedAssetsFolder))
+            {
+                AssetDatabase.CreateFolder(FigmaSettings.FigmaFolderPath, "Assets");
+                var asset = AssetDatabase.LoadAssetAtPath("Packages/com.risd.figmabridge/Assets/TestComp.cs", typeof(Object));
+                //AssetDatabase.CreateAsset(asset, Path.Combine(GeneratedAssetsFolder, "TestComp.cs"));
+                AssetDatabase.Refresh(ImportAssetOptions.ForceUpdate);
+                Debug.Log("GENERATED!"); ///
+            }
+            */
+
             return data;
         }
 

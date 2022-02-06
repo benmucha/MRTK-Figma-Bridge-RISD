@@ -12,7 +12,7 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
     /// Partial class. Editor UI window, simplifies interacting with the Figma Bridge
     /// </summary>
     /// <remarks>HAD TO RENAME THIS WITH THE "A" AT THE END BC THE WINDOW WASNT SHOWING WITH THE ORIGINAL NAME - im guessing this is due to reflection bs but we can worry abt renaming later</remarks>
-    public partial class FigmaToolkitWindowA : EditorWindow
+    public partial class FigmaToolkitWindowAA : EditorWindow
     {
         private FigmaToolkitManager toolkitManager;
         private SerializedObject settings;
@@ -28,7 +28,7 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
         {
             Debug.Log("SHOW WINDOW");
             //FigmaToolkitWindow wnd = GetWindow<FigmaToolkitWindow>();
-            FigmaToolkitWindowA wnd = GetWindow<FigmaToolkitWindowA>();
+            FigmaToolkitWindowAA wnd = GetWindow<FigmaToolkitWindowAA>();
             wnd.titleContent = new GUIContent("MRTK Figma Bridge (RISD)");
             wnd.minSize = new UnityEngine.Vector2(350, 440);
             Debug.Log("SHOWED: " + wnd.position);

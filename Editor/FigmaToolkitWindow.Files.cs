@@ -6,7 +6,7 @@ using UnityEngine.UIElements;
 
 namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
 {
-    public partial class FigmaToolkitWindowA
+    public partial class FigmaToolkitWindowAA
     {
         private VisualElement filesPanel { get { return BuildFilesPanel(); } }
 
