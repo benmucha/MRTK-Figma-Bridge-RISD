@@ -216,7 +216,7 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
         {
             GameObject go = new GameObject(document.name);
             DebugComponent debugComponent = go.AddComponent<DebugComponent>();
-            debugComponent.Init(document);
+            debugComponent.Init(document, FigmaSettings.PositionScale);
             return go;
         }
 

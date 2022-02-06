@@ -10,14 +10,14 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
         public string rawBoundingBox;
         public string scaledBoundingBox;
 
-        public void Init(Node node)
+        public void Init(Node node, float positionScale)
         {
             this.node = node;
             this.name = node.name;
             if (node.absoluteBoundingBox != null)
             {
                 this.rawBoundingBox = node.absoluteBoundingBox.ToString();
-                this.scaledBoundingBox = (node.absoluteBoundingBox.Position * FigmaSettings.PositionScale).ToString();
+                this.scaledBoundingBox = (node.absoluteBoundingBox.Position * positionScale).ToString();
             }
             else
             {
