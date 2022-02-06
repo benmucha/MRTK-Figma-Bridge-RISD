@@ -35,5 +35,10 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
                 return new UnityEngine.Vector3(x, -y);
             }
         }
+
+        public override string ToString()
+        {
+            return Position + " - " + width + "x" + height + " - " + x + ", " + y;
+        }
     }
 }
