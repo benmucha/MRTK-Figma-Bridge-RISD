@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using TMPro;
@@ -137,6 +138,7 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
             }
 
             // make the game object hierarchy
+            InitImport();
 
             foreach (Node item in nodes)
             {
@@ -144,7 +146,25 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
             }
         }
 
-        private void Build(Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.Node document, Transform parent)
+        private Transform framesFolderTransform;
+        private Vector2 frameSize;
+        private Vector2 frameSizeCenterOffset;
+        private void InitImport()
+        {
+            FramesFolder figmaImporterManager = UnityEngine.Object.FindObjectOfType<FramesFolder>();
+            framesFolderTransform = figmaImporterManager.transform;
+            frameSize = figmaImporterManager.config.frameSize;
+            frameSizeCenterOffset = new Vector2(-frameSize.X / 2, frameSize.Y / 2);
+            ClearForReimport();
+        }
+        private void ClearForReimport()
+        {
+            // Can't do a for each loop, because then you get the classic problem of deletion during iteration skipping items in the loop.
+            while (framesFolderTransform.childCount != 0)
+                UnityEngine.Object.DestroyImmediate(framesFolderTransform.GetChild(0).gameObject);
+        }
+
+        private void Build(Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.Node document, Transform parent, Frame containingFrame = null)
         {
             GameObject go = null;
 
@@ -160,7 +180,7 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
                     go = BuildGroup(document);
                     break;
                 case Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.NodeType.Instance:
-                    go = BuildInstance(document, parent);
+                    go = BuildInstance(document, parent, containingFrame);
                     break;
                 case Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.NodeType.Rectangle:
                     go = BuildRectange(document);
@@ -189,7 +209,40 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
                 go.name = document.name;
             }
 
-            go.transform.SetParent(parent, true);
+            if (containingFrame == null && document.type == NodeType.Frame)
+            {
+                go.transform.SetParent(framesFolderTransform, true);
+
+                Vector2 thisFrameSize = new Vector2(document.absoluteBoundingBox.width, document.absoluteBoundingBox.height);
+                if (!frameSize.Equals(thisFrameSize))
+                {
+                    Debug.LogWarning($"Figma Error: Figma frame \"{document.name}\" of size {thisFrameSize} does not match the expected frame size {frameSize}. Please fix this issue by either updating the expected frame size in the config or by fixing the frame in the Figma file.");
+                }
+
+                containingFrame = go.AddComponent<Frame>();
+                containingFrame.Init(document);
+                go.transform.localPosition = Vector3.zero;
+                if (document.name == "SOFTWARE TEST")
+                {
+                    Debug.Log("FOUND IT");
+                    go.SetActive(true);
+                    var backgroundPrefab = AssetDatabase.LoadAssetAtPath("Packages/com.risd.figmabridge/Player/DebugBackground.prefab", typeof(UnityEngine.Object));
+                    GameObject background = (GameObject)UnityEngine.Object.Instantiate(backgroundPrefab, containingFrame.transform);
+                    background.transform.localPosition = new Vector3(0, 0, 0.01f);
+                    background.transform.localScale = ((UnityEngine.Vector2)frameSize) * FigmaSettings.PositionScale;
+                }
+                else
+                {
+                    go.SetActive(false);
+                }
+            }
+            else
+            {
+                go.transform.SetParent(parent, true);
+            }
+
+            DebugComponent debugComponent = go.AddComponent<DebugComponent>();
+            debugComponent.Init(document, FigmaSettings.PositionScale, containingFrame);
 
             if (document.children != null && document.type != Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.NodeType.Instance)
             {
@@ -197,7 +250,7 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
                 {
                     foreach (Node item in document.children)
                     {
-                        Build(item, go?.transform);
+                        Build(item, go?.transform, containingFrame);
                     }
                 }
             }
@@ -208,15 +261,17 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
                 go.SetActive(true);
             }
 
-            go.SetActive(!document.visible);
-            go.name += $" [{document.type}]";
+            if (!document.visible)
+            {
+                //go.SetActive(false);
+            }
+            //go.SetActive(!document.visible);
+            go.name += $" [{document.type}]"; // Add node type to GameObject name.
         }
 
         private GameObject BuildBase(Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.Node document)
         {
             GameObject go = new GameObject(document.name);
-            DebugComponent debugComponent = go.AddComponent<DebugComponent>();
-            debugComponent.Init(document, FigmaSettings.PositionScale);
             return go;
         }
 
@@ -228,7 +283,6 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
 
         private GameObject BuildFrame(Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.Node document)
         {
-            Debug.LogWarning("Frame: " + document.name);
             GameObject go = BuildBase(document);
             SetPosition(document, go);
             return go;
@@ -294,7 +348,7 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
             return go;
         }
 
-        private GameObject BuildInstance(Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.Node node, Transform parent, FigmaToolkitCustomMap customMap = null)
+        private GameObject BuildInstance(Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.Node node, Transform parent, Frame frame, FigmaToolkitCustomMap customMap = null)
         {
             if (customMap == null)
             {
@@ -309,15 +363,18 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
             {
                 if (mapItem.Prefab != null)
                 {
-                    go = UnityEngine.Object.Instantiate(mapItem.Prefab, node.absoluteBoundingBox.Position * FigmaSettings.PositionScale, mapItem.Prefab.transform.rotation, parent);
+                    go = UnityEngine.Object.Instantiate(mapItem.Prefab, Vector3.zero, mapItem.Prefab.transform.rotation, parent);
+                    Vector3 frameOffset = frame != null ? frame.absolutePos : Vector3.zero;
+                    Vector2 instanceSizeOffset = new Vector2(node.absoluteBoundingBox.width/2, -node.absoluteBoundingBox.height/2);
+                    go.transform.localPosition = (node.absoluteBoundingBox.Position - frameOffset + instanceSizeOffset + frameSizeCenterOffset) * FigmaSettings.PositionScale;
 
                     // Post-Process.
-                    PostProcess(node, mapItem, go);
+                    ///PostProcess(node, mapItem, go);
 
-                    go.transform.Translate(go.transform.position - GetTopLeft(go));
+                    //go.transform.Translate(go.transform.position - GetTopLeft(go));
 
                     // Applying offset.
-                    go.transform.Translate(mapItem.offset);
+                    ///go.transform.Translate(mapItem.offset);
                     return go;
                 }
                 else

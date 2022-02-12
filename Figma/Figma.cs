@@ -65,23 +65,36 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
 
     /// <summary>
     /// A 2d vector
-    ///
-    /// This field contains three vectors, each of which are a position in
-    /// normalized object space (normalized object space is if the top left
-    /// corner of the bounding box of the object is (0, 0) and the bottom
-    /// right is (1,1)). The first position corresponds to the start of the
-    /// gradient (value 0 for the purposes of calculating gradient stops),
-    /// the second position is the end of the gradient (value 1), and the
-    /// third handle position determines the width of the gradient (only
-    /// relevant for non-linear gradients).
-    ///
-    /// 2d vector offset within the frame.
     /// </summary>
     [Serializable]
     public partial class Vector2
     {
         private float x;
         private float y;
+
+        public Vector2(float x, float y)
+        {
+            this.x = x;
+            this.y = y;
+        }
+
+        public override string ToString()
+        {
+            return $"({x}, {y})";
+        }
+
+        public static implicit operator Vector2(UnityEngine.Vector2 unityObj) => new Vector2(unityObj.x, unityObj.y);
+        public static implicit operator Vector2(UnityEngine.Vector3 unityObj) => new Vector2(unityObj.x, unityObj.y);
+        public static implicit operator UnityEngine.Vector2(Vector2 obj) => new UnityEngine.Vector2(obj.x, obj.y);
+        public static implicit operator UnityEngine.Vector3(Vector2 obj) => new UnityEngine.Vector3(obj.x, obj.y);
+
+        public override bool Equals(object obj)
+        {
+            if (obj == null)
+                return false;
+            var val = obj as Vector2;
+            return (val != null) && (this.x == val.x) && (this.y == val.y);
+        }
 
         /// <summary>
         /// X coordinate of the vector
