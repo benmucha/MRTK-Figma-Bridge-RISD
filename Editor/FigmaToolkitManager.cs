@@ -152,6 +152,10 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
         private void InitImport()
         {
             FramesFolder figmaImporterManager = UnityEngine.Object.FindObjectOfType<FramesFolder>();
+            if (figmaImporterManager == null)
+            {
+                throw new Exception("Figma Manager doesn't exist");
+            }
             framesFolderTransform = figmaImporterManager.transform;
             frameSize = figmaImporterManager.config.frameSize;
             frameSizeCenterOffset = new Vector2(-frameSize.X / 2, frameSize.Y / 2);
@@ -180,13 +184,15 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
                     go = BuildGroup(document);
                     break;
                 case Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.NodeType.Instance:
-                    go = BuildInstance(document, parent, containingFrame);
+                    go = BuildInstance(document, parent);
+                    SetPosition(document, go, containingFrame);
                     break;
                 case Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.NodeType.Rectangle:
                     go = BuildRectange(document);
                     break;
                 case Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.NodeType.Text:
                     go = BuildText(document);
+                    SetPosition(document, go, containingFrame);
                     break;
                 case Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.NodeType.Boolean:
                 case Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.NodeType.Component:
@@ -209,6 +215,11 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
                 go.name = document.name;
             }
 
+            if (document.type == NodeType.Frame)
+            {
+                go.transform.localPosition = Vector3.zero;
+            }
+
             if (containingFrame == null && document.type == NodeType.Frame)
             {
                 go.transform.SetParent(framesFolderTransform, true);
@@ -221,15 +232,18 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
 
                 containingFrame = go.AddComponent<Frame>();
                 containingFrame.Init(document);
-                go.transform.localPosition = Vector3.zero;
-                if (document.name == "SOFTWARE TEST")
+
+                //if (document.name == "SOFTWARE TEST")
+                if (document.name == "EVA FULL VIEW")
                 {
                     Debug.Log("FOUND IT");
                     go.SetActive(true);
+                    /*
                     var backgroundPrefab = AssetDatabase.LoadAssetAtPath("Packages/com.risd.figmabridge/Player/DebugBackground.prefab", typeof(UnityEngine.Object));
                     GameObject background = (GameObject)UnityEngine.Object.Instantiate(backgroundPrefab, containingFrame.transform);
                     background.transform.localPosition = new Vector3(0, 0, 0.01f);
                     background.transform.localScale = ((UnityEngine.Vector2)frameSize) * FigmaSettings.PositionScale;
+                    */
                 }
                 else
                 {
@@ -299,7 +313,7 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
             GameObject go = BuildBase(document);
             return go;
         }
-        private GameObject BuildText(Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.Node document, FigmaToolkitCustomMap customMap = null)
+        private GameObject BuildText(Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.Node node, FigmaToolkitCustomMap customMap = null)
         {
             if (customMap == null)
             {
@@ -310,36 +324,48 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
             // Assign fontsize from TextNode
             // Assign font from TextNode
 
-            GameObject go = new GameObject(document.name);
+            GameObject go = new GameObject(node.name);
             TextMeshPro tmp = go.AddComponent<TextMeshPro>();
-            tmp.text = document.characters;
-            tmp.fontSize = document.style.FontSize;
+            tmp.text = node.characters;
+            tmp.fontSize = node.style.FontSize;
             tmp.font = customMap.defaultFont;
 
             // TextAlignHorizontal { Center, Justified, Left, Right };
             // Default == Left
-            if (document.style.TextAlignHorizontal == Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.TextAlignHorizontal.Center)
+            if (node.style.TextAlignHorizontal == Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.TextAlignHorizontal.Center)
             {
-                tmp.alignment = TMPro.TextAlignmentOptions.Center;
+                tmp.horizontalAlignment = HorizontalAlignmentOptions.Center;
             }
-            else if (document.style.TextAlignHorizontal == Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.TextAlignHorizontal.Justified)
+            else if (node.style.TextAlignHorizontal == Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.TextAlignHorizontal.Justified)
             {
-                tmp.alignment = TMPro.TextAlignmentOptions.Justified;
+                tmp.horizontalAlignment = HorizontalAlignmentOptions.Justified;
             }
-            else if (document.style.TextAlignHorizontal == Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.TextAlignHorizontal.Right)
+            else if (node.style.TextAlignHorizontal == Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.TextAlignHorizontal.Right)
             {
-                tmp.alignment = TMPro.TextAlignmentOptions.Right;
+                tmp.horizontalAlignment = HorizontalAlignmentOptions.Right;
             }
 
-
+            if (node.style.TextAlignVertical == TextAlignVertical.Top)
+            {
+                tmp.verticalAlignment = VerticalAlignmentOptions.Top;
+            }
+            else if (node.style.TextAlignVertical == TextAlignVertical.Center)
+            {
+                tmp.verticalAlignment = VerticalAlignmentOptions.Middle;
+            }
+            else if (node.style.TextAlignVertical == TextAlignVertical.Bottom)
+            {
+                tmp.verticalAlignment = VerticalAlignmentOptions.Bottom;
+            }
 
             // Applying scale
             go.transform.localScale = new Vector3(FigmaSettings.PositionScale * 10.0f, FigmaSettings.PositionScale * 10.0f, FigmaSettings.PositionScale * 10.0f);
             RectTransform rect = go.GetComponent<RectTransform>();
-            rect.sizeDelta = new UnityEngine.Vector2(document.absoluteBoundingBox.width, document.absoluteBoundingBox.height) * 0.10f;
+            rect.sizeDelta = new UnityEngine.Vector2(node.absoluteBoundingBox.width, node.absoluteBoundingBox.height) * 0.10f;
+            tmp.enableWordWrapping = false; // If the scale clips text then just let it overflow to look normal.
 
             // Positioning
-            rect.position = document.absoluteBoundingBox.Position * FigmaSettings.PositionScale;
+            //rect.position = document.absoluteBoundingBox.Position * FigmaSettings.PositionScale;
 
             Vector3[] v = new Vector3[4];
             rect.GetWorldCorners(v);
@@ -348,7 +374,15 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
             return go;
         }
 
-        private GameObject BuildInstance(Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.Node node, Transform parent, Frame frame, FigmaToolkitCustomMap customMap = null)
+        private void SetPosition(Node node, GameObject go, Frame containingFrame)
+        {
+            Vector3 frameOffset = containingFrame != null ? containingFrame.absolutePos : Vector3.zero;
+            Vector2 instanceSizeOffset = new Vector2(node.absoluteBoundingBox.width / 2, -node.absoluteBoundingBox.height / 2);
+            Vector2 position2d = (node.absoluteBoundingBox.Position - frameOffset + instanceSizeOffset + frameSizeCenterOffset) * FigmaSettings.PositionScale;
+            go.transform.localPosition = new Vector3(position2d.X, position2d.Y, go.transform.localPosition.z);
+        }
+
+        private GameObject BuildInstance(Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.Node node, Transform parent, FigmaToolkitCustomMap customMap = null)
         {
             if (customMap == null)
             {
@@ -364,9 +398,12 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
                 if (mapItem.Prefab != null)
                 {
                     go = UnityEngine.Object.Instantiate(mapItem.Prefab, Vector3.zero, mapItem.Prefab.transform.rotation, parent);
-                    Vector3 frameOffset = frame != null ? frame.absolutePos : Vector3.zero;
-                    Vector2 instanceSizeOffset = new Vector2(node.absoluteBoundingBox.width/2, -node.absoluteBoundingBox.height/2);
-                    go.transform.localPosition = (node.absoluteBoundingBox.Position - frameOffset + instanceSizeOffset + frameSizeCenterOffset) * FigmaSettings.PositionScale;
+
+                    if (componentName == "UI Backplate")
+                    {
+                        go.transform.localScale = new Vector3(node.absoluteBoundingBox.width * FigmaSettings.PositionScale, node.absoluteBoundingBox.height * FigmaSettings.PositionScale, go.transform.localScale.z);
+                        go.transform.localPosition = new Vector3(go.transform.localPosition.x, go.transform.localPosition.y, 0.005f);
+                    }
 
                     // Post-Process.
                     ///PostProcess(node, mapItem, go);
