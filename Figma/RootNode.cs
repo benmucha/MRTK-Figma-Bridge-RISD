@@ -39,7 +39,7 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
         /// An array of canvases attached to the document
         /// </summary>
         [JsonProperty("children")]
-        public Node[] children;
+        public NodeData[] children;
     }
     //[CustomPropertyDrawer(typeof(RootNode))]
     //public class RootNodeDrawer : PropertyDrawer

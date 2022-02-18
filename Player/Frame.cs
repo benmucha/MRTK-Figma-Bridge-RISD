@@ -5,10 +5,10 @@ using UnityEngine;
 
 public class Frame : MonoBehaviour
 {
-    private Node node;
+    private NodeData node;
     public Vector3 absolutePos;
 
-    public void Init(Node node)
+    public void Init(NodeData node)
     {
         this.node = node;
         this.absolutePos = node.absoluteBoundingBox.Position;

@@ -6,13 +6,13 @@ using UnityEngine;
 namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
 {
     [Serializable]
-    public class Node
+    public class NodeData
     {
         public string name;
         public string id;
         public NodeType type;
         [SerializeReference]
-        public Node[] children;
+        public NodeData[] children;
         public bool visible;
         public Color backgroundColor;
         public ExportSetting[] exportSettings;

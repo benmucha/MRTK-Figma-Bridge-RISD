@@ -5,7 +5,7 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
 {
     public class DebugComponent : MonoBehaviour
     {
-        private Node node;
+        private NodeData node;
         public string nodeName;
         public string nodeType;
         public string rawBoundingBox;
@@ -13,7 +13,7 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
         public string containingFrame;
         public string debug;
 
-        public void Init(Node node, float positionScale, Frame containingFrame)
+        public void Init(NodeData node, float positionScale, Frame containingFrame)
         {
             this.node = node;
             this.nodeName = node.name;

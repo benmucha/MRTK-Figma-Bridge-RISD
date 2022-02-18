@@ -12,7 +12,7 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
         private VisualElement documentPanel;
         private VisualElement BuildDocumentPanel(FigmaFile file = null)
         {
-            List<Node> nodesToBuild = new List<Node>();
+            List<NodeData> nodesToBuild = new List<NodeData>();
             var panel = new VisualElement();
             panel.style.paddingLeft = 15;
             panel.style.paddingRight = 6;

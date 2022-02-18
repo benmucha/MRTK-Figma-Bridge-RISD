@@ -128,7 +128,7 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
             AssetDatabase.Refresh();
         }
 
-        public void BuildDocument(string documentName, List<Node> nodes)
+        public void BuildDocument(string documentName, List<NodeData> nodes)
         {
             GameObject documentRoot = GameObject.Find(documentName);
             if (documentRoot == null)
@@ -140,9 +140,9 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
             // make the game object hierarchy
             InitImport();
 
-            foreach (Node item in nodes)
+            foreach (NodeData item in nodes)
             {
-                Build(item, new InstantiatedNode(documentRoot.transform, null));
+                Build(item, new InstantiatedNode(documentRoot));
             }
         }
 
@@ -168,49 +168,97 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
                 UnityEngine.Object.DestroyImmediate(framesFolderTransform.GetChild(0).gameObject);
         }
 
-        private class InstantiatedNode
+        private class Node
         {
-            public Transform transform;
-            public Node node;
+            public NodeData nodeData;
 
-            public bool IsFrame => (node != null) ? node.type == NodeType.Frame : true;
+            public Vector3 Position => nodeData.absoluteBoundingBox == null ? Vector3.zero : nodeData.absoluteBoundingBox.Position;
+            public float Width => nodeData.absoluteBoundingBox.width;
+            public float Height => nodeData.absoluteBoundingBox.height;
+            public Vector2 Size => new Vector2(Width, Height);
+            public String Name => nodeData.name;
+            public NodeType Type => nodeData.type;
+            public bool FromToolkitPrefab => (nodeData.type == NodeType.Instance);
+            public bool IsUiBackplate => ToolkitPrefabName == "UI Backplate";
+            public string ToolkitPrefabName { 
+                get
+                {
+                    return Name.Contains("/") ? Name.Split('/')[0] : Name;
+                } 
+            }
 
-            public InstantiatedNode(Transform transform, Node node)
+            public Node(NodeData data)
             {
-                this.transform = transform;
-                this.node = node;
+                nodeData = data;
             }
         }
 
-        private void Build(Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.Node document, InstantiatedNode parent, Frame containingFrame = null)
+        private class InstantiatedNode
         {
-            GameObject go = null;
+            public GameObject go;
+            public Transform transform => go.transform;
+            public Node node;
+            public InstantiatedNode parent;
+            public Frame containingFrame;
 
-            switch (document.type)
+            public float GetZPos()
+            {
+                if (this.IsParentFrame)
+                {
+                    if (node.IsUiBackplate)
+                        return 0.01f;
+                    else
+                        return 0;
+                }
+                else
+                    return transform.localPosition.z;
+            }
+
+            public bool IsParentFrame => (parent != null) ? parent.IsFrame : true;
+            public bool IsFrame => (node != null) ? node.Type == NodeType.Frame : true;
+
+            public InstantiatedNode(GameObject go)
+            {
+                this.go = go;
+            }
+            public InstantiatedNode(Node node, InstantiatedNode parent, Frame containingFrame)
+            {
+                this.node = node;
+                this.parent = parent;
+                this.containingFrame = containingFrame;
+            }
+        }
+
+        InstantiatedNode BuildBaseNode(NodeData nodeData, InstantiatedNode parent, Frame containingFrame)
+        {
+            FigmaToolkitCustomMap customMap = null;
+            Node node = new Node(nodeData);
+            InstantiatedNode instantiated = new InstantiatedNode(node, parent, containingFrame);
+            GameObject go = BuildGameObject(instantiated);
+            if (go == null)
+                return null;
+            go.name = node.Name;
+            instantiated.go = go;
+            return instantiated;
+        }
+
+        private GameObject BuildGameObject(InstantiatedNode instantiated)
+        {
+            switch (instantiated.node.Type)
             {
                 case Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.NodeType.Canvas:
-                    go = BuildCanvas(document);
-                    break;
+                    return BuildEmpty(instantiated);
                 case Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.NodeType.Frame:
-                    go = BuildFrame(document);
-                    break;
+                    return BuildEmpty(instantiated);
                 case Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.NodeType.Group:
-                    go = BuildGroup(document);
-                    break;
+                    return BuildEmpty(instantiated);
                 case Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.NodeType.Instance:
-                    go = BuildInstance(document, parent.transform);
-                    SetPosition(document, go, containingFrame);
-                    break;
+                    return BuildInstance(instantiated);
                 case Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.NodeType.Rectangle:
-                    
-                    break;
+                    return BuildEmpty(instantiated);
                 case Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.NodeType.Text:
-                    go = BuildText(document, parent.transform);
-                    go.transform.SetParent(parent.transform, true);
-                    SetPosition(document, go, containingFrame, true);
-                    float z = (parent.IsFrame) ? 0 : go.transform.localPosition.z;
-                    go.transform.localPosition = new Vector3(go.transform.localPosition.x, go.transform.localPosition.y, z);
-                    break;
+                    return BuildText(instantiated);
+                /*
                 case Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.NodeType.Boolean:
                 case Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.NodeType.Component:
                 case Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.NodeType.ComponentSet:
@@ -221,34 +269,60 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
                 case Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.NodeType.Slice:
                 case Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.NodeType.Star:
                 case Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.NodeType.Vector:
+                */
                 default:
-                    //Debug.Log($"{document.type} named {document.name} was not built");
-                    break;
+                    Debug.LogWarning($"{instantiated.node.Name} was not built as its type ({instantiated.node.Type}) is unsupported");
+                    return null;
             }
+        }
 
-            if (!go)
-            {
-                go = new GameObject();
-                go.name = document.name;
-            }
-
-            if (containingFrame == null && document.type == NodeType.Frame)
+        private GameObject BuildEmpty(InstantiatedNode instantiated)
+        {
+            GameObject go = new GameObject();
+            if (instantiated.containingFrame == null && instantiated.node.Type == NodeType.Frame)
             {
                 go.transform.SetParent(framesFolderTransform, true);
+            }
+            else
+            {
+                go.transform.SetParent(instantiated.parent.transform);
+            }
+            return go;
+        }
 
-                Vector2 thisFrameSize = new Vector2(document.absoluteBoundingBox.width, document.absoluteBoundingBox.height);
+        /// <summary>
+        /// Factory for <see cref="InstantiatedNode"/>.
+        /// </summary>
+        private class NodeBuilder
+        {
+
+        }
+
+        private void Build(Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.NodeData node, InstantiatedNode parent, Frame containingFrame = null)
+        {
+            InstantiatedNode instantiatedNode = BuildBaseNode(node, parent, containingFrame);
+            if (instantiatedNode == null)
+                return;
+            GameObject go = instantiatedNode.go;
+            SetPosition(instantiatedNode);
+
+            if (containingFrame == null && node.type == NodeType.Frame)
+            {
+                //go.transform.SetParent(framesFolderTransform, true);
+
+                Vector2 thisFrameSize = new Vector2(node.absoluteBoundingBox.width, node.absoluteBoundingBox.height);
                 if (!frameSize.Equals(thisFrameSize))
                 {
-                    Debug.LogWarning($"Figma Error: Figma frame \"{document.name}\" of size {thisFrameSize} does not match the expected frame size {frameSize}. Please fix this issue by either updating the expected frame size in the config or by fixing the frame in the Figma file.");
+                    Debug.LogWarning($"Figma Error: Figma frame \"{node.name}\" of size {thisFrameSize} does not match the expected frame size {frameSize}. Please fix this issue by either updating the expected frame size in the config or by fixing the frame in the Figma file.");
                 }
 
                 containingFrame = go.AddComponent<Frame>();
-                containingFrame.Init(document);
+                containingFrame.Init(node);
 
                 //if (document.name == "SOFTWARE TEST")
-                if (document.name == "EVA FULL VIEW")
+                if (node.name == "EVA FULL VIEW")
                 {
-                    Debug.Log("FOUND IT");
+                    Debug.Log("Found the focus frame");
                     go.SetActive(true);
                     /*
                     var backgroundPrefab = AssetDatabase.LoadAssetAtPath("Packages/com.risd.figmabridge/Player/DebugBackground.prefab", typeof(UnityEngine.Object));
@@ -264,113 +338,115 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
             }
             else
             {
-                go.transform.SetParent(parent.transform, true);
+                //go.transform.SetParent(parent.transform, true);
             }
 
-            if (document.type == NodeType.Frame)
+            if (node.type == NodeType.Frame)
             {
                 go.transform.localPosition = Vector3.zero;
             }
 
             DebugComponent debugComponent = go.AddComponent<DebugComponent>();
-            debugComponent.Init(document, FigmaSettings.PositionScale, containingFrame);
+            debugComponent.Init(node, FigmaSettings.PositionScale, containingFrame);
 
-            if (document.children != null && document.type != Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.NodeType.Instance)
+            if (node.children != null && node.type != Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.NodeType.Instance)
             {
-                if (document.type != Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.NodeType.ComponentSet)
+                if (node.type != Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.NodeType.ComponentSet)
                 {
-                    foreach (Node item in document.children)
+                    foreach (NodeData item in node.children)
                     {
-                        Build(item, new InstantiatedNode(go?.transform, document), containingFrame);
+                        Build(item, instantiatedNode, containingFrame);
                     }
                 }
             }
 
             // Prevent top-level "Page N" from being turned off
-            if (document.absoluteBoundingBox == null)
+            if (node.absoluteBoundingBox == null)
             {
                 go.SetActive(true);
             }
 
-            if (!document.visible)
+            if (!node.visible)
             {
                 //go.SetActive(false);
             }
             //go.SetActive(!document.visible);
-            go.name += $" [{document.type}]"; // Add node type to GameObject name.
+            go.name += $" [{node.type}]"; // Add node type to GameObject name.
         }
 
-        private GameObject BuildBase(Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.Node document)
+        private GameObject BuildBase(Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.NodeData document)
         {
             GameObject go = new GameObject(document.name);
             return go;
         }
 
-        private GameObject BuildCanvas(Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.Node document)
+        private GameObject BuildCanvas(Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.NodeData document)
         {
             GameObject go = BuildBase(document);
             return go;
         }
 
-        private GameObject BuildFrame(Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.Node document)
+        private GameObject BuildFrame(Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.NodeData document)
         {
             GameObject go = BuildBase(document);
             SetPosition(document, go);
             return go;
         }
 
-        private GameObject BuildGroup(Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.Node document)
+        private GameObject BuildGroup(Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.NodeData document)
         {
             GameObject go = BuildBase(document);
             return go;
         }
 
-        private GameObject BuildRectange(Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.Node document)
+        private GameObject BuildRectange(Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.NodeData document)
         {
             GameObject go = BuildBase(document);
             return go;
         }
-        private GameObject BuildText(Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.Node node, Transform parent, FigmaToolkitCustomMap customMap = null)
+        private GameObject BuildText(InstantiatedNode instantiated, FigmaToolkitCustomMap customMap = null)
         {
             if (customMap == null)
             {
                 customMap = settings.DefaultCustomMap;
             }
+            NodeData nodeData = instantiated.node.nodeData;
+
             // Create TextMeshPro object
             // Assign text from TextNode
             // Assign fontsize from TextNode
             // Assign font from TextNode
 
-            GameObject go = BuildBase(node);
+            GameObject go = BuildBase(nodeData);
             TextMeshPro tmp = go.AddComponent<TextMeshPro>();
-            tmp.text = node.characters;
-            tmp.fontSize = node.style.FontSize;
+            tmp.text = nodeData.characters;
+            tmp.fontSize = nodeData.style.FontSize;
             tmp.font = customMap.defaultFont;
 
             // TextAlignHorizontal { Center, Justified, Left, Right };
             // Default == Left
-            if (node.style.TextAlignHorizontal == Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.TextAlignHorizontal.Center)
+            if (nodeData.style.TextAlignHorizontal == Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.TextAlignHorizontal.Center)
             {
                 tmp.horizontalAlignment = HorizontalAlignmentOptions.Center;
             }
-            else if (node.style.TextAlignHorizontal == Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.TextAlignHorizontal.Justified)
+            else if (nodeData.style.TextAlignHorizontal == Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.TextAlignHorizontal.Justified)
             {
                 tmp.horizontalAlignment = HorizontalAlignmentOptions.Justified;
             }
-            else if (node.style.TextAlignHorizontal == Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.TextAlignHorizontal.Right)
+            else if (nodeData.style.TextAlignHorizontal == Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.TextAlignHorizontal.Right)
             {
                 tmp.horizontalAlignment = HorizontalAlignmentOptions.Right;
             }
 
-            if (node.style.TextAlignVertical == TextAlignVertical.Top)
+            if (nodeData.style.TextAlignVertical == TextAlignVertical.Top)
             {
                 tmp.verticalAlignment = VerticalAlignmentOptions.Top;
             }
-            else if (node.style.TextAlignVertical == TextAlignVertical.Center)
+            else if (nodeData.style.TextAlignVertical == TextAlignVertical.Center)
             {
                 tmp.verticalAlignment = VerticalAlignmentOptions.Middle;
             }
-            else if (node.style.TextAlignVertical == TextAlignVertical.Bottom)
+            else if (nodeData.style.TextAlignVertical == TextAlignVertical.Bottom)
             {
                 tmp.verticalAlignment = VerticalAlignmentOptions.Bottom;
             }
@@ -378,7 +454,7 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
             // Applying scale
             go.transform.localScale = new Vector3(FigmaSettings.PositionScale * 10.0f, FigmaSettings.PositionScale * 10.0f, FigmaSettings.PositionScale * 10.0f);
             RectTransform rect = go.GetComponent<RectTransform>();
-            rect.sizeDelta = new UnityEngine.Vector2(node.absoluteBoundingBox.width, node.absoluteBoundingBox.height) * 0.10f;
+            rect.sizeDelta = new UnityEngine.Vector2(nodeData.absoluteBoundingBox.width, nodeData.absoluteBoundingBox.height) * 0.10f;
             tmp.enableWordWrapping = false; // If the scale clips text then just let it overflow to look normal.
 
             // Positioning
@@ -388,42 +464,37 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
             rect.GetWorldCorners(v);
             rect.Translate(rect.position - v[1]);
 
+            go.transform.SetParent(instantiated.parent.transform);
             return go;
         }
 
-        private void SetPosition(Node node, GameObject go, Frame containingFrame, bool d = false)
+        private void SetPosition(InstantiatedNode instantiatedNode)
         {
-            Vector3 frameOffset = containingFrame != null ? containingFrame.absolutePos : Vector3.zero;
-            Vector2 instanceSizeOffset = new Vector2(node.absoluteBoundingBox.width / 2, -node.absoluteBoundingBox.height / 2);
-            Vector2 position2d = (node.absoluteBoundingBox.Position - frameOffset + instanceSizeOffset + frameSizeCenterOffset) * FigmaSettings.PositionScale;
-            go.transform.localPosition = new Vector3(position2d.X, position2d.Y, go.transform.localPosition.z);
-
-            if (d)
-            {
-                Debug.Log(node.name + " - " + frameOffset + " - " + node.absoluteBoundingBox.Position + " - " + (node.absoluteBoundingBox.Position - frameOffset) + " -- " + instanceSizeOffset + " - " + (node.absoluteBoundingBox.Position - frameOffset + instanceSizeOffset) + " --- " + position2d);
-            }
+            if (instantiatedNode.node.nodeData.absoluteBoundingBox == null)
+                return;
+            Vector3 frameOffset = instantiatedNode.containingFrame != null ? instantiatedNode.containingFrame.absolutePos : Vector3.zero;
+            Vector2 instanceSizeOffset = new Vector2(instantiatedNode.node.Width / 2, -instantiatedNode.node.Height / 2);
+            Vector2 position2d = (instantiatedNode.node.Position - frameOffset + instanceSizeOffset + frameSizeCenterOffset) * FigmaSettings.PositionScale;
+            instantiatedNode.transform.localPosition = new Vector3(position2d.X, position2d.Y, instantiatedNode.GetZPos());
         }
-
-        private GameObject BuildInstance(Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.Node node, Transform parent, FigmaToolkitCustomMap customMap = null)
+        
+        private GameObject BuildInstance(InstantiatedNode instantiated, FigmaToolkitCustomMap customMap = null)
         {
             if (customMap == null)
             {
                 customMap = settings.DefaultCustomMap;
             }
 
-            CustomMapItem mapItem;
-            GameObject go;
-
-            string componentName = node.name.Contains("/") ? node.name.Split('/')[0] : node.name;
-            if (customMap.componentMap.TryGetValue(componentName, out mapItem))
+            Node node = instantiated.node;
+            if (customMap.componentMap.TryGetValue(node.ToolkitPrefabName, out CustomMapItem mapItem))
             {
                 if (mapItem.Prefab != null)
                 {
-                    go = UnityEngine.Object.Instantiate(mapItem.Prefab, parent.position, mapItem.Prefab.transform.rotation, parent);
+                    GameObject go = UnityEngine.Object.Instantiate(mapItem.Prefab, instantiated.parent.node.Position, mapItem.Prefab.transform.rotation, instantiated.parent.transform);
 
-                    if (componentName == "UI Backplate")
+                    if (node.IsUiBackplate)
                     {
-                        go.transform.localScale = new Vector3(node.absoluteBoundingBox.width * FigmaSettings.PositionScale, node.absoluteBoundingBox.height * FigmaSettings.PositionScale, go.transform.localScale.z);
+                        go.transform.localScale = new Vector3(node.Width * FigmaSettings.PositionScale, node.Height * FigmaSettings.PositionScale, go.transform.localScale.z);
                         go.transform.localPosition = new Vector3(go.transform.localPosition.x, go.transform.localPosition.y, 0.01f);
                     }
 
@@ -434,26 +505,23 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
 
                     // Applying offset.
                     ///go.transform.Translate(mapItem.offset);
+
                     return go;
                 }
                 else
                 {
-                    Debug.Log($"{node.name} not found in prefab Library");
-                    go = BuildBase(node);
-                    SetPosition(node, go);
-                    return go;
+                    Debug.LogWarning($"{node.Name} not found in prefab Library");
+                    return null;
                 }
             }
             else
             {
-                Debug.Log($"{componentName} (original name: {node.name}) not found in prefab Library");
-                go = BuildBase(node);
-                SetPosition(node, go);
-                return go;
+                Debug.LogWarning($"{node.ToolkitPrefabName} (original name: {node.Name}) not found in prefab Library");
+                return null;
             }
         }
-
-        private void PostProcess(Node node, CustomMapItem mapItem, GameObject go)
+        
+        private void PostProcess(NodeData node, CustomMapItem mapItem, GameObject go)
         {
             switch (mapItem.ProcessType)
             {
@@ -471,15 +539,15 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
                     ButtonConfigHelper[] buttonConfigHelpers = go.transform.Find("ButtonCollection").GetComponentsInChildren<ButtonConfigHelper>();
 
                     //Get buttons in node children
-                    Node[] buttonNodes = Array.FindAll(node.children, x => x.name == "Buttons");
+                    NodeData[] buttonNodes = Array.FindAll(node.children, x => x.name == "Buttons");
 
                     //Get text in each button
                     List<string> nodeTexts = new List<string>();
                     if (buttonNodes != null)
                     {
-                        foreach (Node item in buttonNodes)
+                        foreach (NodeData item in buttonNodes)
                         {
-                            foreach (Node child in item.children)
+                            foreach (NodeData child in item.children)
                             {
                                 nodeTexts.Add(GetText(child));
                             }
@@ -511,7 +579,7 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
             }
         }
 
-        private void SetPosition(Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.Node document, GameObject go)
+        private void SetPosition(Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.NodeData document, GameObject go)
         {
             if (document.absoluteBoundingBox != null)
             {
@@ -528,7 +596,7 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
             return new Vector3(bounds.min.x, bounds.max.y);
         }
 
-        private string GetText(Node node)
+        private string GetText(NodeData node)
         {
             if (node == null)
             {
@@ -540,7 +608,7 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
             }
             if (node.children != null)
             {
-                foreach (Node child in node.children)
+                foreach (NodeData child in node.children)
                 {
                     string found = GetText(child);
                     if (found != null)

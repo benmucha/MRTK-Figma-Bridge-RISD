@@ -31,7 +31,7 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
         /// <summary>
         /// An array of nodes that are direct children of this node
         /// </summary>
-        public Node[] children;
+        public NodeData[] children;
 
 
         /// <summary>

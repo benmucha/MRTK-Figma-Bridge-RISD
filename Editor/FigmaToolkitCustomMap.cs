@@ -63,7 +63,7 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
                 GetComponents(item);
             }
         }
-        private void GetComponents(Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.Node node)
+        private void GetComponents(Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.NodeData node)
         {
             if (node.type == Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.NodeType.ComponentSet || node.type == Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.NodeType.Component)
             {
