@@ -180,16 +180,12 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
             public NodeType Type => nodeData.type;
             public bool FromToolkitPrefab => (nodeData.type == NodeType.Instance);
             public bool IsUiBackplate => ToolkitPrefabName == "UI Backplate";
-            public string ToolkitPrefabName { 
-                get
-                {
-                    return Name.Contains("/") ? Name.Split('/')[0] : Name;
-                } 
-            }
+            public string ToolkitPrefabName { get; set; }
 
             public Node(NodeData data)
             {
-                nodeData = data;
+                this.nodeData = data;
+                this.ToolkitPrefabName = Name.Contains("/") ? Name.Split('/')[0] : Name;
             }
         }
 
@@ -255,6 +251,12 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
                 case Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.NodeType.Instance:
                     return BuildInstance(instantiated);
                 case Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.NodeType.Rectangle:
+                    NodeData nodeData = instantiated.node.nodeData;
+                    if (nodeData.fills.Length > 0 && (nodeData.fills[0].Type == FillType.Solid))
+                    {
+                        instantiated.node.ToolkitPrefabName = "UI Backplate";
+                        return BuildInstance(instantiated);
+                    }
                     return BuildEmpty(instantiated);
                 case Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter.NodeType.Text:
                     return BuildText(instantiated);
