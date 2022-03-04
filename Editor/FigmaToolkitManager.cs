@@ -151,16 +151,24 @@ namespace Microsoft.MixedReality.Toolkit.Utilities.FigmaImporter
         private Vector2 frameSizeCenterOffset;
         private void InitImport()
         {
-            FramesFolder figmaImporterManager = UnityEngine.Object.FindObjectOfType<FramesFolder>();
-            if (figmaImporterManager == null)
-            {
-                throw new Exception("Figma Manager doesn't exist");
-            }
+            FramesFolder figmaImporterManager = OrderFigmaManager();
             framesFolderTransform = figmaImporterManager.transform;
             frameSize = figmaImporterManager.config.frameSize;
             frameSizeCenterOffset = new Vector2(-frameSize.X / 2, frameSize.Y / 2);
             ClearForReimport();
         }
+        private FramesFolder OrderFigmaManager()
+        {
+            var existingManager = UnityEngine.Object.FindObjectOfType<FramesFolder>();
+            return existingManager ? existingManager : SetupManagerInScene();
+        }
+        private FramesFolder SetupManagerInScene()
+        {
+            GameObject managerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(Path.Combine(FigmaSettings.PackagePath, "Player", "Figma Frames.prefab"));
+            Debug.Log(managerPrefab + " - " + Path.Combine(FigmaSettings.PackagePath, "Player", "Figma Frames.prefab"));
+            return UnityEngine.Object.Instantiate(managerPrefab).GetComponent<FramesFolder>();
+        }
+        
         private void ClearForReimport()
         {
             // Can't do a for each loop, because then you get the classic problem of deletion during iteration skipping items in the loop.
